@@ -12,6 +12,7 @@
   "dependencies": {
     "@types/node": "^22.13.11",
     "axios": "^1.11.0",
+    "dayjs": "^1.11.13",
     "dotenv": "^17.2.0",
     "moment-timezone": "^0.6.0",
     "node-fetch": "^3.3.2",
