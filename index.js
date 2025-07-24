@@ -1,8 +1,9 @@
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 const dayjs = require('dayjs');
+require('dotenv').config();
 
-const bot = new Telegraf('YOUR_TELEGRAM_BOT_TOKEN');
+const bot = new Telegraf(process.env.BOT_TOKEN);
 const API_KEY = '02fbc46cde747dc35d63d130b61142f8';
 const API_URL = 'https://v3.football.api-sports.io';
 
