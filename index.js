@@ -1,22 +1,19 @@
 const { Telegraf, Markup } = require("telegraf");
 const axios = require("axios");
 const dayjs = require("dayjs");
-const express = require("express"); // ✅ Added Express
+const express = require("express");
 
 const bot = new Telegraf("8200700934:AAFRPZH5meOTsV66FfmFbU4xZ8004CKtgIA");
-const API_KEY = "02fbc46cde747dc35d63d130b61142f8";
-const API_URL = "https://v3.football.api-sports.io";
+const API_KEY = "3302f2ab243c442391c71febe6055509";
+const API_URL = "https://api.football-data.org/v4";
 
 const headers = {
-  "x-apisports-key": API_KEY,
+  "X-Auth-Token": API_KEY,
 };
 
-// 🔧 Helper to split long messages
 async function sendChunkedMessage(ctx, fullMessage) {
   const maxLength = 4000;
-  if (fullMessage.length <= maxLength) {
-    return ctx.reply(fullMessage);
-  }
+  if (fullMessage.length <= maxLength) return ctx.reply(fullMessage);
 
   const chunks = [];
   let remaining = fullMessage;
@@ -35,61 +32,55 @@ async function sendChunkedMessage(ctx, fullMessage) {
   }
 }
 
-// 🏁 Start
 bot.start((ctx) => {
   ctx.reply(
     "⚽ Welcome to Football Fixtures Bot!\n\nChoose an option:",
     Markup.keyboard([
       ["📅 Today", "📆 Tomorrow"],
       ["🔴 Live Matches"],
-      ["🌍 Popular Leagues", "👩 Women’s Football"],
-    ]).resize(),
+      ["🌍 Popular Leagues"],
+    ]).resize()
   );
 });
 
-// 🔄 Format Match
-function formatMatch(fixture) {
-  const { teams, goals, fixture: fx } = fixture;
-  const home = teams.home.name;
-  const away = teams.away.name;
-  const status = fx.status.short;
-  const score = `${goals.home ?? "-"} : ${goals.away ?? "-"}`;
-  const time = dayjs(fx.date).format("HH:mm");
+function formatMatch(match) {
+  const home = match.homeTeam.name;
+  const away = match.awayTeam.name;
+  const score = `${match.score.fullTime.home ?? "-"} : ${match.score.fullTime.away ?? "-"}`;
+  const status = match.status;
+  const time = dayjs(match.utcDate).format("HH:mm");
   return `🏟️ ${home} vs ${away}\n⏱️ ${status} | 🕒 ${time} | 🔢 ${score}\n`;
 }
 
-// 📦 Fetch Fixtures by Date + Optional Filter
-async function getFixturesByDate(date, filter = "") {
+async function getFixturesByDate(date) {
   try {
-    const res = await axios.get(`${API_URL}/fixtures?date=${date}`, { headers });
-    const fixtures = res.data.response;
-
-    const filtered = filter
-      ? fixtures.filter(
-          (fx) =>
-            fx.league.name.toLowerCase().includes(filter.toLowerCase()) ||
-            fx.league.country.toLowerCase().includes(filter.toLowerCase()),
-        )
-      : fixtures;
-
-    return filtered.map(formatMatch).join("\n") || "❌ No matches found.";
+    const res = await axios.get(`${API_URL}/matches?dateFrom=${date}&dateTo=${date}`, { headers });
+    const matches = res.data.matches;
+    return matches.map(formatMatch).join("\n") || "❌ No matches found.";
   } catch (err) {
     console.error(err);
     return "⚠️ Error fetching fixtures.";
   }
 }
 
-// 🔴 Live Matches
+bot.hears("📅 Today", async (ctx) => {
+  const today = dayjs().format("YYYY-MM-DD");
+  const text = await getFixturesByDate(today);
+  await sendChunkedMessage(ctx, `📅 Fixtures for Today:\n\n${text}`);
+});
+
+bot.hears("📆 Tomorrow", async (ctx) => {
+  const tomorrow = dayjs().add(1, "day").format("YYYY-MM-DD");
+  const text = await getFixturesByDate(tomorrow);
+  await sendChunkedMessage(ctx, `📆 Fixtures for Tomorrow:\n\n${text}`);
+});
+
 bot.hears("🔴 Live Matches", async (ctx) => {
   try {
-    const res = await axios.get(`${API_URL}/fixtures?live=all`, { headers });
-    const liveFixtures = res.data.response;
-
-    if (liveFixtures.length === 0) {
-      return ctx.reply("📭 No live matches now.");
-    }
-
-    const text = liveFixtures.map(formatMatch).join("\n");
+    const res = await axios.get(`${API_URL}/matches?status=LIVE`, { headers });
+    const liveMatches = res.data.matches;
+    if (!liveMatches.length) return ctx.reply("📭 No live matches now.");
+    const text = liveMatches.map(formatMatch).join("\n");
     await sendChunkedMessage(ctx, `🔴 Live Matches:\n\n${text}`);
   } catch (err) {
     console.error(err);
@@ -97,87 +88,57 @@ bot.hears("🔴 Live Matches", async (ctx) => {
   }
 });
 
-// 📅 Today
-bot.hears("📅 Today", async (ctx) => {
-  const today = dayjs().format("YYYY-MM-DD");
-  const text = await getFixturesByDate(today);
-  await sendChunkedMessage(ctx, `📅 Fixtures for Today:\n\n${text}`);
-});
-
-// 📆 Tomorrow
-bot.hears("📆 Tomorrow", async (ctx) => {
-  const tomorrow = dayjs().add(1, "day").format("YYYY-MM-DD");
-  const text = await getFixturesByDate(tomorrow);
-  await sendChunkedMessage(ctx, `📆 Fixtures for Tomorrow:\n\n${text}`);
-});
-
-// 🌍 Popular Leagues
 bot.hears("🌍 Popular Leagues", async (ctx) => {
   ctx.reply(
     "Choose a league:",
     Markup.keyboard([
-      ["🇪🇸 La Liga", "🇬🇧 Premier League"],
-      ["🇮🇹 Serie A", "🇫🇷 Ligue 1"],
-      ["🇩🇪 Bundesliga", "🇳🇱 Eredivisie"],
+      ["🇬🇧 Premier League", "🇪🇸 La Liga"],
+      ["🇮🇹 Serie A", "🇩🇪 Bundesliga"],
+      ["🇫🇷 Ligue 1", "🇳🇱 Eredivisie"],
       ["🔙 Back"],
-    ]).resize(),
+    ]).resize()
   );
 });
 
-bot.hears(
-  [
-    "🇪🇸 La Liga",
-    "🇬🇧 Premier League",
-    "🇮🇹 Serie A",
-    "🇫🇷 Ligue 1",
-    "🇩🇪 Bundesliga",
-    "🇳🇱 Eredivisie",
-  ],
-  async (ctx) => {
-    const league = ctx.message.text.split(" ").slice(1).join(" ");
-    const date = dayjs().format("YYYY-MM-DD");
-    const text = await getFixturesByDate(date, league);
-    await sendChunkedMessage(ctx, `🏆 ${league} Fixtures:\n\n${text}`);
-  },
-);
+const leagueIds = {
+  "Premier League": 2021,
+  "La Liga": 2014,
+  "Serie A": 2019,
+  "Bundesliga": 2002,
+  "Ligue 1": 2015,
+  "Eredivisie": 2003,
+};
 
-// 👩 Women’s Football
-bot.hears("👩 Women’s Football", async (ctx) => {
-  ctx.reply(
-    "Choose women’s competition:",
-    Markup.keyboard([
-      ["🏆 Women’s World Cup", "🌍 Women’s AFCON"],
-      ["🔙 Back"],
-    ]).resize(),
-  );
-});
-
-bot.hears(["🏆 Women’s World Cup", "🌍 Women’s AFCON"], async (ctx) => {
-  const keyword = ctx.message.text.includes("World")
-    ? "Women World"
-    : "Women Africa";
+bot.hears(Object.keys(leagueIds).map(name => `🇬🇧 ${name}`).concat(
+  ["🇪🇸 La Liga", "🇮🇹 Serie A", "🇩🇪 Bundesliga", "🇫🇷 Ligue 1", "🇳🇱 Eredivisie"]), async (ctx) => {
+  const leagueName = ctx.message.text.split(" ").slice(1).join(" ");
+  const leagueId = leagueIds[leagueName];
   const date = dayjs().format("YYYY-MM-DD");
-  const text = await getFixturesByDate(date, keyword);
-  await sendChunkedMessage(ctx, `👩 ${ctx.message.text}:\n\n${text}`);
+  try {
+    const res = await axios.get(`${API_URL}/competitions/${leagueId}/matches?dateFrom=${date}&dateTo=${date}`, { headers });
+    const matches = res.data.matches;
+    const text = matches.map(formatMatch).join("\n") || `❌ No matches for ${leagueName}.`;
+    await sendChunkedMessage(ctx, `🏆 ${leagueName} Fixtures:\n\n${text}`);
+  } catch (err) {
+    console.error(err);
+    ctx.reply("⚠️ Could not load league fixtures.");
+  }
 });
 
-// 🔙 Back
 bot.hears("🔙 Back", (ctx) => {
   ctx.reply(
     "Choose an option:",
     Markup.keyboard([
       ["📅 Today", "📆 Tomorrow"],
       ["🔴 Live Matches"],
-      ["🌍 Popular Leagues", "👩 Women’s Football"],
-    ]).resize(),
+      ["🌍 Popular Leagues"],
+    ]).resize()
   );
 });
 
-// ✅ Launch bot
 bot.launch();
 console.log("✅ Bot is running...");
 
-// 🌐 Keep alive with Express (for UptimeRobot)
 const app = express();
 app.get("/", (req, res) => {
   res.send("✅ Football Bot is alive.");
