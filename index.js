@@ -56,6 +56,7 @@ async function getFixturesByDate(date) {
   try {
     const res = await axios.get(`${API_URL}/matches?dateFrom=${date}&dateTo=${date}`, { headers });
     const matches = res.data.matches;
+    console.log(`✅ Found ${matches.length} matches for ${date}`);
     return matches.map(formatMatch).join("\n") || "❌ No matches found.";
   } catch (err) {
     console.error(err);
@@ -94,7 +95,7 @@ bot.hears("🌍 Popular Leagues", async (ctx) => {
     Markup.keyboard([
       ["🇬🇧 Premier League", "🇪🇸 La Liga"],
       ["🇮🇹 Serie A", "🇩🇪 Bundesliga"],
-      ["🇫🇷 Ligue 1", "🇳🇱 Eredivisie"],
+      ["🇫🇷 Ligue 1", "🏆 Champions League"],
       ["🔙 Back"],
     ]).resize()
   );
@@ -106,11 +107,11 @@ const leagueIds = {
   "Serie A": 2019,
   "Bundesliga": 2002,
   "Ligue 1": 2015,
-  "Eredivisie": 2003,
+  "Champions League": 2001,
 };
 
-bot.hears(Object.keys(leagueIds).map(name => `🇬🇧 ${name}`).concat(
-  ["🇪🇸 La Liga", "🇮🇹 Serie A", "🇩🇪 Bundesliga", "🇫🇷 Ligue 1", "🇳🇱 Eredivisie"]), async (ctx) => {
+bot.hears(Object.keys(leagueIds).map(name => `🏆 ${name}`).concat(
+  ["🇬🇧 Premier League", "🇪🇸 La Liga", "🇮🇹 Serie A", "🇩🇪 Bundesliga", "🇫🇷 Ligue 1"]), async (ctx) => {
   const leagueName = ctx.message.text.split(" ").slice(1).join(" ");
   const leagueId = leagueIds[leagueName];
   const date = dayjs().format("YYYY-MM-DD");
