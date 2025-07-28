@@ -136,15 +136,12 @@ bot.hears("🔙 Back", (ctx) => {
   );
 });
 
-bot.launch();
-console.log("✅ Bot is running...");
-
 const app = express();
-app.get("/", (req, res) => {
-  res.send("✅ Football Bot is alive.");
-});
+app.use(express.json());
+app.use(bot.webhookCallback("/webhook"));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🌐 Express server running at http://localhost:${PORT}`);
+  await bot.telegram.setWebhook(`https://footfixt-1.onrender.com/webhook`);
 });
